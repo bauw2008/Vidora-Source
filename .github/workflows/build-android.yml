@@ -1,0 +1,96 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      
+      - name: Get dependencies
+        run: |
+          flutter clean
+          flutter pub get
+      
+      - name: Verify Flutter installation
+        run: flutter doctor -v
+      
+      - name: Accept Android licenses
+        run: yes | flutter doctor --android-licenses
+      
+      - name: Setup signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            # 创建 keystore 目录
+            mkdir -p android/app/keystore
+            # 解码并写入 keystore (PKCS12 格式)
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore/keystore.p12
+            # 创建 key.properties（使用绝对路径）
+            echo "storeFile=$PWD/android/app/keystore/keystore.p12" > android/key.properties
+            echo "storePassword=$KEYSTORE_PASSWORD" >> android/key.properties
+            echo "keyAlias=$KEY_ALIAS" >> android/key.properties
+            echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
+            echo "Signing key configured"
+            # 验证文件是否创建成功
+            ls -la android/app/keystore/
+            cat android/key.properties
+          else
+            echo "No signing key provided, using debug signing"
+          fi
+      
+      - name: Build Android APK with splits per ABI
+        run: flutter build apk --release --split-per-abi
+      
+      - name: Get version from pubspec
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Upload all APKs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vidora-apk-all-architectures
+          path: build/app/outputs/flutter-apk/*.apk
+      
+      - name: Create Release with APKs
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Vidora v${{ steps.version.outputs.version }}
+          body: |
+            ## Vidora v${{ steps.version.outputs.version }}
+            
+            ### 下载说明
+            - `app-arm64-v8a-release.apk` - 适用于大多数现代 Android 手机（推荐）
+            - `app-armeabi-v7a-release.apk` - 适用于旧款 Android 手机
+            - `app-x86_64-release.apk` - 适用于模拟器或 x86 设备
+          files: build/app/outputs/flutter-apk/*.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
