@@ -1,39 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../services/api_service.dart';
-import '../services/tmdb_service.dart';
+import '../services/poster_service.dart';
 import '../models/video_info.dart';
 import '../utils/font_utils.dart';
 
-/// 海报轮播项
-class PosterItem {
-  final String id;
-  final String title;
-  final String poster;
-  final String? portraitPoster;
-  final String? landscapePoster;
-  final String type; // 'movie' | 'tv'
-  final String category;
-  final String? rate;
-  final String? year;
-  final String? overview;
-
-  PosterItem({
-    required this.id,
-    required this.title,
-    required this.poster,
-    this.portraitPoster,
-    this.landscapePoster,
-    required this.type,
-    required this.category,
-    this.rate,
-    this.year,
-    this.overview,
-  });
-}
-
 /// 海报轮播组件
+/// 使用全局 PosterService 获取数据，页面切换时不会重复加载
 class PosterCarousel extends StatefulWidget {
   final Function(VideoInfo)? onPosterTap;
 
@@ -47,135 +21,64 @@ class PosterCarousel extends StatefulWidget {
 }
 
 class _PosterCarouselState extends State<PosterCarousel> {
+  final PosterService _posterService = PosterService();
   List<PosterItem> _posters = [];
   bool _isLoading = true;
   int _currentIndex = 0;
   Timer? _autoPlayTimer;
   final PageController _pageController = PageController();
+  StreamSubscription<void>? _refreshSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadPosters();
+    // 监听数据刷新
+    _refreshSubscription = _posterService.onRefresh.listen((_) {
+      _loadPosters();
+    });
   }
 
   @override
   void dispose() {
     _autoPlayTimer?.cancel();
     _pageController.dispose();
+    _refreshSubscription?.cancel();
     super.dispose();
   }
 
   /// 加载海报数据
   Future<void> _loadPosters() async {
-    try {
-      setState(() {
-        _isLoading = true;
-      });
-
-      // 并行获取电影和剧集周榜
-      final movieResults = await ApiService.getWeeklyHot(type: 'movie', limit: 10);
-      final tvResults = await ApiService.getWeeklyHot(type: 'tv', limit: 10);
-
-      final List<PosterItem> posters = [];
-
-      // 处理电影数据 - 随机选择2部
-      if (movieResults.isNotEmpty) {
-        final selectedMovies = _getRandomItems(movieResults, 2);
-        for (final movie in selectedMovies) {
-          // 优先尝试从 TMDB 获取海报和简介
-          final tmdbData = await TMDBService.searchPoster(
-            title: movie.title,
-            category: 'movie',
-            year: movie.year,
-          );
-
-          // 选择最佳海报：优先 TMDB backdrop，然后豆瓣 photos[0]，再 TMDB poster，最后豆瓣 cover
-          String bestPoster = movie.cover;
-          if (tmdbData != null && tmdbData.hasBackdrop) {
-            bestPoster = tmdbData.backdrop;
-          }
-
-          // 选择最佳简介：优先 TMDB overview，然后豆瓣 description
-          String bestOverview = movie.description ?? '';
-          if (tmdbData != null && tmdbData.hasOverview) {
-            bestOverview = tmdbData.overview;
-          }
-
-          posters.add(PosterItem(
-            id: movie.id,
-            title: movie.title,
-            poster: bestPoster,
-            type: 'movie',
-            category: '热门电影',
-            rate: movie.rating > 0 ? movie.rating.toStringAsFixed(1) : null,
-            year: movie.year,
-            overview: bestOverview.isNotEmpty ? bestOverview : null,
-          ));
-        }
-      }
-
-      // 处理剧集数据 - 随机选择2部
-      if (tvResults.isNotEmpty) {
-        final selectedTv = _getRandomItems(tvResults, 2);
-        for (final tv in selectedTv) {
-          // 优先尝试从 TMDB 获取海报和简介
-          final tmdbData = await TMDBService.searchPoster(
-            title: tv.title,
-            category: 'tv',
-            year: tv.year,
-          );
-
-          // 选择最佳海报：优先 TMDB backdrop，然后豆瓣 photos[0]，再 TMDB poster，最后豆瓣 cover
-          String bestPoster = tv.cover;
-          if (tmdbData != null && tmdbData.hasBackdrop) {
-            bestPoster = tmdbData.backdrop;
-          }
-
-          // 选择最佳简介：优先 TMDB overview，然后豆瓣 description
-          String bestOverview = tv.description ?? '';
-          if (tmdbData != null && tmdbData.hasOverview) {
-            bestOverview = tmdbData.overview;
-          }
-
-          posters.add(PosterItem(
-            id: tv.id,
-            title: tv.title,
-            poster: bestPoster,
-            type: 'tv',
-            category: '热门剧集',
-            rate: tv.rating > 0 ? tv.rating.toStringAsFixed(1) : null,
-            year: tv.year,
-            overview: bestOverview.isNotEmpty ? bestOverview : null,
-          ));
-        }
-      }
-
-      // 随机打乱顺序
-      posters.shuffle();
-
-      if (mounted) {
+    // 先检查是否已有缓存数据
+    if (_posterService.hasData && !_posterService.isLoading) {
+      final posters = await _posterService.getPosters();
+      if (mounted && posters.isNotEmpty) {
         setState(() {
           _posters = posters;
           _isLoading = false;
         });
         _startAutoPlay();
       }
-    } catch (e) {
-      print('加载海报轮播失败: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+      return;
+    }
+
+    // 没有缓存，显示加载状态
+    setState(() {
+      _isLoading = true;
+    });
+
+    // 获取数据
+    final posters = await _posterService.getPosters();
+
+    if (mounted) {
+      setState(() {
+        _posters = posters;
+        _isLoading = false;
+      });
+      if (posters.isNotEmpty) {
+        _startAutoPlay();
       }
     }
-  }
-
-  /// 从列表中随机选择指定数量的元素
-  List<T> _getRandomItems<T>(List<T> items, int count) {
-    if (items.length <= count) return items;
-    final shuffled = List<T>.from(items)..shuffle();
-    return shuffled.take(count).toList();
   }
 
   /// 开始自动播放
@@ -214,7 +117,7 @@ class _PosterCarouselState extends State<PosterCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    // 加载中或没有海报数据时，不显示任何内容（参考 Vidora 实现）
+    // 加载中或没有海报数据时，不显示任何内容
     if (_isLoading || _posters.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -394,8 +297,7 @@ class _PosterCarouselState extends State<PosterCarousel> {
   }
 }
 
-/// 海报图片组件 - 支持加载完成后淡入显示（参考 Vidora 机制）
-/// 图片加载完成前不显示任何内容，只显示灰色背景占位
+/// 海报图片组件 - 支持加载完成后淡入显示
 class _PosterImage extends StatefulWidget {
   final String url;
   
@@ -413,7 +315,7 @@ class _PosterImageState extends State<_PosterImage> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 图片 - 加载完成后淡入显示，加载前完全透明
+        // 图片 - 加载完成后淡入显示
         AnimatedOpacity(
           opacity: _loaded ? 1.0 : 0.0,
           duration: const Duration(milliseconds: 500),
@@ -424,7 +326,6 @@ class _PosterImageState extends State<_PosterImage> {
             fadeOutDuration: Duration.zero,
             placeholder: (context, url) => const SizedBox.shrink(),
             errorWidget: (context, url, error) {
-              // 加载失败时标记为已加载，显示灰色背景
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted && !_loaded) {
                   setState(() => _loaded = true);
@@ -435,7 +336,6 @@ class _PosterImageState extends State<_PosterImage> {
               );
             },
             imageBuilder: (context, imageProvider) {
-              // 图片加载成功时标记为已加载
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted && !_loaded) {
                   setState(() => _loaded = true);

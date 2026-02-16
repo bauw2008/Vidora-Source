@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
+import 'poster_service.dart';
 
 /// 缓存项数据结构
 class CacheItem<T> {
@@ -273,6 +274,9 @@ class DoubanCacheService {
           }
         }
       }
+
+      // 同时清理海报缓存（与周榜同步，周榜过期时海报也刷新）
+      PosterService().clearCache();
     } catch (e) {
       if (kDebugMode) {
         print('清理过期豆瓣缓存失败: $e');

@@ -9,6 +9,7 @@ import '../services/user_data_service.dart';
 import '../services/local_mode_storage_service.dart';
 import '../services/subscription_service.dart';
 import '../services/api_service.dart';
+import '../services/poster_service.dart';
 import '../utils/device_utils.dart';
 import '../utils/font_utils.dart';
 import 'home_screen.dart';
@@ -382,6 +383,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             // 保存模式状态为服务器模式
             await UserDataService.saveIsLocalMode(false);
 
+            // 刷新海报数据（让用户每次登录看到不同的海报）
+            PosterService().refresh();
+
             // _showToast('登录成功！', const Color(0xFF27ae60));
 
             // 跳转到首页，并清除所有路由栈（强制销毁所有旧页面）
@@ -527,6 +531,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         setState(() {
           _isLoading = false;
         });
+
+        // 刷新海报数据（让用户每次登录看到不同的海报）
+        PosterService().refresh();
 
         // _showToast('本地模式登录成功！', const Color(0xFF27ae60));
 

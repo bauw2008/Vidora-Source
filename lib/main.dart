@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'screens/login_screen.dart';
 import 'services/theme_service.dart';
 import 'services/douban_cache_service.dart';
+import 'services/poster_service.dart';
 import 'package:media_kit/media_kit.dart';
 
 void main() async {
@@ -17,6 +18,9 @@ void main() async {
 
   // 启动定期清理
   cacheService.startPeriodicCleanup();
+
+  // 预加载海报数据（异步，不阻塞启动）
+  PosterService().refresh();
 
   runApp(const VidoraApp());
 }
