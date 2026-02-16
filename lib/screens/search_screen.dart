@@ -23,8 +23,11 @@ import 'player_screen.dart';
 enum SortOrder { none, asc, desc }
 
 class SearchScreen extends StatefulWidget {
+  final String? initialQuery;
+
   const SearchScreen({
     super.key,
+    this.initialQuery,
   });
 
   @override
@@ -139,12 +142,24 @@ class _SearchScreenState extends State<SearchScreen>
       curve: Curves.easeInOut,
     ));
 
-    // 进入搜索页面时自动聚焦搜索框
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted) {
-        _searchFocusNode.requestFocus();
-      }
-    });
+    // 处理初始查询
+    if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
+      _searchController.text = widget.initialQuery!;
+      _searchQuery = widget.initialQuery!;
+      // 延迟触发搜索，确保页面已完全加载
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _performSearch(_searchController.text);
+        }
+      });
+    } else {
+      // 进入搜索页面时自动聚焦搜索框
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          _searchFocusNode.requestFocus();
+        }
+      });
+    }
   }
 
   @override

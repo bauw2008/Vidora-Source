@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../widgets/video_player_surface.dart';
@@ -21,6 +23,7 @@ import '../utils/device_utils.dart';
 import '../widgets/player_details_panel.dart';
 import '../widgets/player_episodes_panel.dart';
 import '../widgets/player_sources_panel.dart';
+import 'search_screen.dart';
 
 class PlayerScreen extends StatefulWidget {
   final String? source;
@@ -2555,14 +2558,41 @@ class _PlayerScreenState extends State<PlayerScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: Column(
                     children: [
-                      // 返回按钮
+                      // 返回按钮 - 有标题时返回搜索，无标题时返回上页
                       SizedBox(
                         width: double.infinity,
                         height: 48,
                         child: ElevatedButton(
                           onPressed: () {
                             hideError();
-                            _onBackPressed();
+                            if (videoTitle.isNotEmpty) {
+                              // 返回搜索页面
+                              if (Platform.isIOS) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => SearchScreen(
+                                      initialQuery: videoTitle,
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                Navigator.push(
+                                  context,
+                                  PageRouteBuilder(
+                                    pageBuilder: (context, animation, secondaryAnimation) =>
+                                        SearchScreen(
+                                      initialQuery: videoTitle,
+                                    ),
+                                    transitionDuration: Duration.zero,
+                                    reverseTransitionDuration: Duration.zero,
+                                  ),
+                                );
+                              }
+                            } else {
+                              // 无标题时返回上页
+                              _onBackPressed();
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
@@ -2573,9 +2603,9 @@ class _PlayerScreenState extends State<PlayerScreen>
                             elevation: 0,
                             shadowColor: Colors.transparent,
                           ),
-                          child: const Text(
-                            '返回上页',
-                            style: TextStyle(
+                          child: Text(
+                            videoTitle.isNotEmpty ? '🔍 返回搜索' : '← 返回上页',
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                             ),
