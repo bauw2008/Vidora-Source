@@ -61,20 +61,43 @@ class MenuSettings {
   }
 }
 
+/// TMDB 配置模型
+class TMDBConfig {
+  final bool enablePosters;
+  final bool enableActorSearch;
+
+  TMDBConfig({
+    this.enablePosters = false,
+    this.enableActorSearch = false,
+  });
+
+  factory TMDBConfig.fromJson(Map<String, dynamic> json) {
+    return TMDBConfig(
+      enablePosters: json['enablePosters'] ?? false,
+      enableActorSearch: json['enableActorSearch'] ?? false,
+    );
+  }
+}
+
 /// 公开配置数据
 class PublicConfig {
   final MenuSettings menuSettings;
   final List<dynamic> customCategories;
+  final TMDBConfig tmdbConfig;
 
   PublicConfig({
     required this.menuSettings,
     this.customCategories = const [],
-  });
+    TMDBConfig? tmdbConfig,
+  }) : tmdbConfig = tmdbConfig ?? TMDBConfig();
 
   factory PublicConfig.fromJson(Map<String, dynamic> json) {
     return PublicConfig(
       menuSettings: MenuSettings.fromJson(json['MenuSettings'] ?? {}),
       customCategories: json['CustomCategories'] ?? [],
+      tmdbConfig: json['TMDBConfig'] != null
+          ? TMDBConfig.fromJson(json['TMDBConfig'])
+          : null,
     );
   }
 }
@@ -145,6 +168,18 @@ class MenuConfigService {
   static Future<MenuSettings> getMenuSettings({bool forceRefresh = false}) async {
     final config = await getPublicConfig(forceRefresh: forceRefresh);
     return config?.menuSettings ?? MenuSettings();
+  }
+
+  /// 获取 TMDB 配置
+  static Future<TMDBConfig> getTMDBConfig({bool forceRefresh = false}) async {
+    final config = await getPublicConfig(forceRefresh: forceRefresh);
+    return config?.tmdbConfig ?? TMDBConfig();
+  }
+
+  /// 检查 TMDB 海报功能是否启用
+  static Future<bool> isTMDBPostersEnabled() async {
+    final tmdbConfig = await getTMDBConfig();
+    return tmdbConfig.enablePosters;
   }
 
   /// 检查菜单是否启用

@@ -44,6 +44,11 @@ class TMDBPosterData {
 }
 
 /// TMDB服务类
+/// 
+/// 缓存策略：
+/// - 服务端已有完整的 TMDB 缓存（Redis + 内存缓存）
+/// - 客户端额外缓存以减少网络请求
+/// - 搜索结果缓存24小时，热门内容缓存2小时
 class TMDBService {
   static final TMDBService _instance = TMDBService._internal();
   factory TMDBService() => _instance;
@@ -59,11 +64,15 @@ class TMDBService {
   /// [title] 标题
   /// [category] 类型: 'movie' 电影, 'tv' 剧集
   /// [year] 年份（可选）
+  /// 
+  /// 说明：服务端已有 TMDB 缓存，客户端额外缓存可减少重复请求
   static Future<TMDBPosterData?> searchPoster({
     required String title,
     required String category,
     String? year,
   }) async {
+    if (title.isEmpty) return null;
+    
     try {
       // 生成缓存键
       final cacheKey = _generateSearchCacheKey(
@@ -72,7 +81,7 @@ class TMDBService {
         year: year,
       );
 
-      // 尝试从缓存获取
+      // 尝试从客户端缓存获取
       final cached = await _instance._cacheService.get<TMDBPosterData>(
         cacheKey,
         (data) => TMDBPosterData.fromJson(data as Map<String, dynamic>),
@@ -82,7 +91,7 @@ class TMDBService {
         return cached;
       }
 
-      // 缓存未命中，从服务端获取
+      // 缓存未命中，从服务端获取（服务端有 Redis 缓存）
       final response = await ApiService.get<Map<String, dynamic>>(
         '/api/tmdb/posters',
         queryParameters: {
@@ -102,7 +111,7 @@ class TMDBService {
             data['data'] as Map<String, dynamic>,
           );
 
-          // 保存到缓存
+          // 保存到客户端缓存
           await _instance._cacheService.set(
             cacheKey,
             posterData,

@@ -12,6 +12,8 @@ import 'shimmer_effect.dart';
 /// 推荐信息模块组件
 class RecommendationSection extends StatefulWidget {
   final String title; // 标题
+  final IconData? titleIcon; // 标题图标
+  final Color? titleIconColor; // 标题图标颜色
   final String? moreText; // 查看更多文本
   final VoidCallback? onMoreTap; // 查看更多点击回调
   final List<VideoInfo>? videoInfos; // 视频信息列表
@@ -26,6 +28,8 @@ class RecommendationSection extends StatefulWidget {
   const RecommendationSection({
     super.key,
     required this.title,
+    this.titleIcon,
+    this.titleIconColor,
     this.moreText,
     this.onMoreTap,
     this.videoInfos,
@@ -47,6 +51,7 @@ class _RecommendationSectionState extends State<RecommendationSection> {
   bool _showLeftScroll = false;
   bool _showRightScroll = false;
   bool _isHovered = false;
+  bool _isTitleHovered = false;
   
   // hover 状态
   bool _isMoreButtonHovered = false;
@@ -170,15 +175,11 @@ class _RecommendationSectionState extends State<RecommendationSection> {
               children: [
                 Consumer<ThemeService>(
                   builder: (context, themeService, child) {
-                    return Text(
-                      widget.title,
-                      style: FontUtils.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: themeService.isDarkMode
-                            ? const Color(0xFFffffff)
-                            : const Color(0xFF2c3e50),
-                      ),
+                    return MouseRegion(
+                      cursor: DeviceUtils.isPC()
+                          ? SystemMouseCursors.click
+                          : MouseCursor.defer,
+                      child: _buildAnimatedTitle(themeService),
                     );
                   },
                 ),
@@ -519,6 +520,88 @@ class _RecommendationSectionState extends State<RecommendationSection> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  /// 构建动画标题（带图标和下划线动画效果）
+  Widget _buildAnimatedTitle(ThemeService themeService) {
+    final iconColor = widget.titleIconColor ?? const Color(0xFF3b82f6);
+    
+    return MouseRegion(
+      onEnter: DeviceUtils.isPC()
+          ? (_) => setState(() => _isTitleHovered = true)
+          : null,
+      onExit: DeviceUtils.isPC()
+          ? (_) => setState(() => _isTitleHovered = false)
+          : null,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 图标
+              if (widget.titleIcon != null) ...[
+                AnimatedScale(
+                  scale: _isTitleHovered ? 1.1 : 1.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: AnimatedRotation(
+                    turns: _isTitleHovered ? 0.02 : 0.0,
+                    duration: const Duration(milliseconds: 300),
+                    child: Icon(
+                      widget.titleIcon,
+                      size: 20,
+                      color: iconColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              // 标题文本
+              Text(
+                widget.title,
+                style: FontUtils.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: themeService.isDarkMode
+                      ? const Color(0xFFffffff)
+                      : const Color(0xFF2c3e50),
+                ),
+              ),
+            ],
+          ),
+          // 动态下划线
+          Positioned(
+            bottom: -4,
+            left: 0,
+            right: 0,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              height: 2,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(1),
+                gradient: LinearGradient(
+                  colors: [
+                    iconColor,
+                    iconColor.withValues(alpha: 0.6),
+                    iconColor.withValues(alpha: 0.3),
+                  ],
+                ),
+                boxShadow: _isTitleHovered
+                    ? [
+                        BoxShadow(
+                          color: iconColor.withValues(alpha: 0.4),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ]
+                    : null,
+              ),
+              width: _isTitleHovered ? null : 0,
+            ),
+          ),
+        ],
       ),
     );
   }

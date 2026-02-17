@@ -341,6 +341,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
               },
             ),
+            // 全球剧集周榜组件
+            WeeklyHotSection(
+              type: WeeklyHotType.tvGlobal,
+              onItemTap: (videoInfo) {
+                _navigateToPlayer(
+                  PlayerScreen(
+                    title: videoInfo.title,
+                    year: videoInfo.year,
+                  ),
+                );
+              },
+              onGlobalMenuAction: (videoInfo, action) {
+                if (action == VideoMenuAction.play) {
+                  _navigateToPlayer(
+                    PlayerScreen(
+                      title: videoInfo.title,
+                      year: videoInfo.year,
+                    ),
+                  );
+                } else {
+                  _onGlobalMenuActionFromVideoInfo(videoInfo, action);
+                }
+              },
+            ),
           ],
         ),
       ),

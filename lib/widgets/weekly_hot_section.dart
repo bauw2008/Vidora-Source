@@ -4,15 +4,49 @@ import '../services/api_service.dart';
 import 'recommendation_section.dart';
 import 'video_menu_bottom_sheet.dart';
 
+/// 周榜类型配置
+class WeeklyHotConfig {
+  final String title;
+  final IconData icon;
+  final Color iconColor;
+
+  const WeeklyHotConfig({
+    required this.title,
+    required this.icon,
+    required this.iconColor,
+  });
+}
+
+/// 周榜类型配置映射
+const Map<WeeklyHotType, WeeklyHotConfig> _weeklyHotConfigs = {
+  WeeklyHotType.movie: WeeklyHotConfig(
+    title: '电影周榜',
+    icon: Icons.trending_up,
+    iconColor: Color(0xFFf97316), // orange-500
+  ),
+  WeeklyHotType.tv: WeeklyHotConfig(
+    title: '剧集周榜',
+    icon: Icons.tv,
+    iconColor: Color(0xFF3b82f6), // blue-500
+  ),
+  WeeklyHotType.tvGlobal: WeeklyHotConfig(
+    title: '全球剧集',
+    icon: Icons.public,
+    iconColor: Color(0xFFa855f7), // purple-500
+  ),
+};
+
 /// 周榜类型
 enum WeeklyHotType {
   movie, // 电影周榜
   tv, // 剧集周榜
+  tvGlobal, // 全球剧集周榜
 }
 
 // 静态缓存：避免重复加载
 List<WeeklyHotItem> _cachedMovieItems = [];
 List<WeeklyHotItem> _cachedTvItems = [];
+List<WeeklyHotItem> _cachedTvGlobalItems = [];
 
 /// 周榜组件（电影周榜/剧集周榜）
 class WeeklyHotSection extends StatefulWidget {
@@ -36,9 +70,12 @@ class WeeklyHotSection extends StatefulWidget {
       _cachedMovieItems = [];
     } else if (type == WeeklyHotType.tv) {
       _cachedTvItems = [];
+    } else if (type == WeeklyHotType.tvGlobal) {
+      _cachedTvGlobalItems = [];
     } else {
       _cachedMovieItems = [];
       _cachedTvItems = [];
+      _cachedTvGlobalItems = [];
     }
   }
 
@@ -57,7 +94,9 @@ class _WeeklyHotSectionState extends State<WeeklyHotSection> {
     // 使用缓存数据
     final cachedItems = widget.type == WeeklyHotType.movie 
         ? _cachedMovieItems 
-        : _cachedTvItems;
+        : widget.type == WeeklyHotType.tv
+            ? _cachedTvItems
+            : _cachedTvGlobalItems;
     
     if (cachedItems.isNotEmpty) {
       _items = cachedItems;
@@ -82,7 +121,19 @@ class _WeeklyHotSectionState extends State<WeeklyHotSection> {
     }
 
     try {
-      final typeStr = widget.type == WeeklyHotType.movie ? 'movie' : 'tv';
+      String typeStr;
+      switch (widget.type) {
+        case WeeklyHotType.movie:
+          typeStr = 'movie';
+          break;
+        case WeeklyHotType.tv:
+          typeStr = 'tv';
+          break;
+        case WeeklyHotType.tvGlobal:
+          typeStr = 'tv-global';
+          break;
+      }
+      
       final items = await ApiService.getWeeklyHot(
         type: typeStr,
         limit: widget.limit,
@@ -97,8 +148,10 @@ class _WeeklyHotSectionState extends State<WeeklyHotSection> {
         // 更新静态缓存
         if (widget.type == WeeklyHotType.movie) {
           _cachedMovieItems = items;
-        } else {
+        } else if (widget.type == WeeklyHotType.tv) {
           _cachedTvItems = items;
+        } else {
+          _cachedTvGlobalItems = items;
         }
       }
     } catch (e) {
@@ -133,7 +186,11 @@ class _WeeklyHotSectionState extends State<WeeklyHotSection> {
     }).toList();
   }
 
-  String get _title => widget.type == WeeklyHotType.movie ? '电影周榜' : '剧集周榜';
+  String get _title => _weeklyHotConfigs[widget.type]?.title ?? '周榜';
+  
+  IconData? get _icon => _weeklyHotConfigs[widget.type]?.icon;
+  
+  Color? get _iconColor => _weeklyHotConfigs[widget.type]?.iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -144,6 +201,8 @@ class _WeeklyHotSectionState extends State<WeeklyHotSection> {
 
     return RecommendationSection(
       title: _title,
+      titleIcon: _icon,
+      titleIconColor: _iconColor,
       videoInfos: _convertToVideoInfos(),
       onItemTap: widget.onItemTap,
       onGlobalMenuAction: widget.onGlobalMenuAction,

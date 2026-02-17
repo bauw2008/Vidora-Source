@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/poster_service.dart';
@@ -84,7 +83,8 @@ class _PosterCarouselState extends State<PosterCarousel> {
   /// 开始自动播放
   void _startAutoPlay() {
     _autoPlayTimer?.cancel();
-    _autoPlayTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    // 轮播时间改为12秒，与 Vidora Web 版保持一致
+    _autoPlayTimer = Timer.periodic(const Duration(seconds: 12), (timer) {
       if (_posters.isEmpty) return;
       final nextIndex = (_currentIndex + 1) % _posters.length;
       _pageController.animateToPage(
@@ -154,7 +154,7 @@ class _PosterCarouselState extends State<PosterCarousel> {
                 shape: BoxShape.circle,
                 color: _currentIndex == index
                     ? const Color(0xFF27AE60)
-                    : Colors.grey.withOpacity(0.3),
+                    : Colors.grey.withValues(alpha: 0.3),
               ),
             );
           }),
@@ -174,7 +174,7 @@ class _PosterCarouselState extends State<PosterCarousel> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 10,
               offset: const Offset(0, 5),
             ),
@@ -195,7 +195,7 @@ class _PosterCarouselState extends State<PosterCarousel> {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withOpacity(0.7),
+                      Colors.black.withValues(alpha: 0.7),
                     ],
                     stops: const [0.6, 1.0],
                   ),
